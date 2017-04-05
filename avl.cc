@@ -12,7 +12,7 @@
 #define REPETITIONS 10		// Number of times we repeat the task.
 
 // ************* TODO: Pick a better cutoff value. *************
-int SEQUENTIAL_CUTOFF = 0;	// Default height at which we switch from
+int SEQUENTIAL_CUTOFF = 10;	// Default height at which we switch from
                                 // parallel to sequential code
 
 typedef std::string KType;   // The datatype for the key of the AVL tree Node
@@ -281,24 +281,31 @@ void findStatsSequential(Node * root, double &avg, double &var, int &count) {
 // Use findStatsSequential for inspiration.
 //
 void findStatsHelper(Node * root, double &avg, double &var, int &count) {
+	
+	if(root == NULL){
+		avg = 0; var = 0; count = 0;
+    	return;
+	}
 
-  // ************ TODO: Implement this! *************
+	if (root->height <= SEQUENTIAL_CUTOFF){
+		findStatsSequential(root, avg, var, count);
+	} else {
+		double lavg, lvar, ravg, rvar;
+	  	int lcount, rcount;
 
-  if (root == NULL) {
-    avg = 0; var = 0; count = 0;
-    return;
-  }
+	  	// Find stats in the left subtree.
+	  	//create a new parallel child task
+	  	Node * left = root->left;
+	  	Node * right = root->right;
+	  	#pragma omp task untied shared(lavg, lvar, lcount)
+	  	{findStatsHelper(left, lavg, lvar, lcount);}
+	  	
+	  	// Find stats in the right subtree.
+	  	findStatsHelper(right, ravg, rvar, rcount);
 
-  double lavg, lvar, ravg, rvar;
-  int lcount, rcount;
+	  	#pragma omp taskwait 
 
-  // Find stats in the left subtree.
-  findStatsSequential(root->left, lavg, lvar, lcount);
-
-  // Find stats in the right subtree.
-  findStatsSequential(root->right, ravg, rvar, rcount);
-
-  updateStats(root->value,
+	  	updateStats(root->value,
               lavg, lvar, lcount,
               ravg, rvar, rcount,
               avg, var, count);
